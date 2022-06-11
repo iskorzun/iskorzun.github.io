@@ -8,7 +8,7 @@ DApp = {
     wallets: {},
 
     // set to true to use with local blockchain
-    development: true,
+    development: false,
     //Rinkeby:
     factoryAddress: "0x4e34423a43C96102bB1De713D89B08EFCe35424E",
     tokenAddress: "0x6E54E0107bd9ED566AFC8430D31Ef38727769564",
