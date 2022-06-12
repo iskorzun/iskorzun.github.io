@@ -27,10 +27,8 @@ DApp = {
         // Is there is an injected web3 instance?
         if (typeof web3 !== 'undefined') {
           DApp.web3Provider = web3.currentProvider;
-        } else {
-          // If no injected web3 instance is detected, fallback to the TestRPC
-          DApp.web3Provider = new Web3.providers.HttpProvider('http://localhost:9545');
         }
+
         web3 = new Web3(DApp.web3Provider);
         console.log("[x] web3 object initialized.");
     },
@@ -64,15 +62,16 @@ DApp = {
                 DApp.toptalTokenContract.setProvider(DApp.web3Provider);
                 console.log("[x] ToptalToken contract initialized.");
 
-                $.getJSON('../contracts/TimeLockedWallet.json', function(walletContract){
+                $.getJSON('../contracts/TimeLockedWallet.json', (walletContract) => {
                     DApp.walletContract = TruffleContract(walletContract)
                     DApp.walletContract.setProvider(DApp.web3Provider);
                     console.log("[x] TimeLockedWallet contract initialized.");
 
-                    web3.eth.getAccounts(function(error, accounts) {
-                        if (error) {
-                            console.error(error);
-                        } else {
+
+                    console.log(ethereum);
+
+                    ethereum.request({ method: 'eth_requestAccounts' }).then( accounts => {
+                        if (accounts.length) {
                             DApp.currentAccount = accounts[0];
                             console.log("[x] Using account", DApp.currentAccount);
                             DApp.initCreateWalletForm();
@@ -81,8 +80,12 @@ DApp = {
                             DApp.loadWallets();
                             DApp.initTopupWalletForm();
                             DApp.initClaimForm();
-                        }
-                    });
+                        } 
+                    }).catch((e) => console.log(e));
+    
+                  
+                    
+                    
                 });
             });
         });
@@ -180,7 +183,7 @@ DApp = {
                         var createdAt   = createdEvent.createdAt.toNumber();
                         var ether       = createdEvent.amount.toNumber();
 
-                        DApp.addFundsToWallet(walletAddress, 'wei', ether);
+                        DApp.addFundsToWallet(wallet, 'wei', ether);
                         DApp.addWalletToTable(from, to, wallet, createdAt, unlockDate);
                     });
         }
