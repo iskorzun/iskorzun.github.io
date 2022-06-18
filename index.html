@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/css/bootstrap-editable.css" rel="stylesheet"/>
     <link rel="stylesheet" href="css/dapp.css">
-    <script src="https://unpkg.com/@metamask/legacy-web3@latest/dist/metamask.web3.min.js"></script>
+    <!-- <script src="https://unpkg.com/@metamask/legacy-web3@latest/dist/metamask.web3.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.7/web3.min.js"></script>
     <script src="js/lib/jquery-3.2.1.min.js"></script>
     <script src="js/lib/popper-1.12.3.min.js"></script>
     <script src="js/lib/bootstrap-4.0.0-beta-2.min.js"></script>
@@ -16,16 +17,18 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/js/bootstrap-editable.min.js"></script>
     <script src="js/lib/moment-2.19.2.min.js"></script>
     <script src="js/lib/moment-timezone-0.5.14.min.js "></script>
-    <script src="js/lib/truffle-contract-3.0.1.js"></script>
+    <!-- <script src="js/lib/truffle-contract-3.0.1.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@4.3.5/dist/truffle-contract.js"></script>
+    
     <script src="js/dapp.js"></script>
 </head>
 <body>
     <div class="header clearfix">
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md navbar-dark mb-4 bg-dark">
-            <a class="navbar-brand" href="#">Time Locked Wallets</a>
+            <a class="navbar-brand" href="#">Deposit Wallets</a>
             <div class="collapse navbar-collapse  float-right" id="navbarCollapse">
-                <ul class="nav navbar-nav">
+                <!-- <ul class="nav navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link"
                            href="https://github.com/radek1st/time-locked-wallets/blob/master/BLOG.md">About This Project</a>
@@ -33,7 +36,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="https://github.com/radek1st/time-locked-wallets/">Source Code</a>
                     </li>
-                </ul>
+                </ul> -->
             </div>
         </nav>
     </div>
@@ -57,7 +60,7 @@
                            aria-controls="new-wallet"
                            aria-selected="true">New Wallet</a>
                     </li>
-                    <li class="nav-item">
+                    <!-- <li class="nav-item">
                         <a class="nav-link text-white bg-danger border-danger"
                            id="topup-tab" 
                            data-toggle="tab" 
@@ -65,7 +68,7 @@
                            role="tab" 
                            aria-controls="topup" 
                            aria-selected="false">Topup</a>
-                    </li>
+                    </li> -->
                     <li class="nav-item">
                         <a class="nav-link bg-warning text-white border-warning"
                            id="claim-tab"
@@ -73,7 +76,7 @@
                            href="#claim"
                            role="tab"
                            aria-controls="claim"
-                           aria-selected="false">Claim</a>
+                           aria-selected="false">Judge</a>
                     </li>
                 </ul>
             </div>
@@ -94,13 +97,10 @@
                 <form id="create-wallet-form">
                     <div class="row">
                         <div class="col form-group">
-                            <label for="ethereumAddress">Receiver Address</label>
+                            <label for="ethereumAddress">Seller Address</label>
                             <input id="ethereumAddress" type="text" class="form-control" placeholder="Reciever eth address">
                         </div>
-                        <div class="col form-group">
-                            <label for="unlockDate">Unlock Time (UTC)</label>
-                            <input id="unlockDate" type="datetime-local" class="form-control">
-                        </div>
+                        
                     </div>
                     <div class="row">
                         <div class="col form-group">
@@ -108,7 +108,7 @@
                             <input id="etherAmount" type="number" min="0" step="0.001" class="form-control" placeholder="ETH amount">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block text-white">Create Wallet</button>
+                    <button type="submit" class="btn btn-success btn-block text-white">Create Wallet</button>
                 </form>
             </div>
 
@@ -154,41 +154,32 @@
                  style="padding-bottom: 15px">
                 <div class="row bg-warning text-white text-sm-center" style="padding-top: 5px">
                     <div class="col-12">
-                        <h3>Claim Funds Form</h3>
+                        <h3>Judge Form</h3>
                     </div>
                 </div>
                 <form id="claim-funds-form">
                     <div class="row">
                         <div class="col form-group">
-                            <label for="claimWalletAddresses">Wallet Contract Address</label>
-                            <select class="form-control" id="claimWalletAddresses">
-                            </select>
+                            <label for="contractWalletAddresses">Wallet Contract Address</label>
+                            <input id="contractWalletAddresses" type="text" class="form-control" placeholder="Contract address">
                         </div>
-                        <div class="col form-group">
-                            <label for="unlockIn">Unlock Time</label>
-                            <input id="unlockIn" type="text" disabled class="form-control" placeholder="Unlock time">
-                        </div>
+                       
                     </div>
                     <div class="row">
+                       
                         <div class="col form-group">
-                            <label for="claimableAmount">Claimable Amount</label>
-                            <input id="claimableAmount" type="number" disabled class="form-control" placeholder="Currency amount">
+                            <label for="claimWalletAddresses">Receiver Address(Buyer/Seller)</label>
+                            <input id="receiverWalletAddresses" type="text" class="form-control" placeholder="Wallet address">
                         </div>
-                        <div class="col form-group">
-                            <label for="claimableCurrency">Currency</label>
-                            <select class="form-control" id="claimableCurrency">
-                                <option value="ether">Ether</option>
-                                <option value="toptaltoken">Toptal Token</option>
-                            </select>
-                        </div>
+                       
                     </div>
-                    <button type="submit" id="claim-submit-button" class="btn btn-warning btn-block text-white">Claim Ether/ERC20 Tokens</button>
+                    <button type="submit" id="claim-submit-button" class="btn btn-warning btn-block text-white">Send Ether</button>
                 </form>
             </div>
 
         </div>
         <div id="created-wallets" class="container border border-success rounded" style="margin-top: 15px">
-            <div class="row bg-success text-white text-sm-center" style="padding-top: 5px">
+            <div class="row bg-primary text-white text-sm-center" style="padding-top: 5px">
                 <div class="col-12">
                     <h3>Wallets</h3>
                 </div>

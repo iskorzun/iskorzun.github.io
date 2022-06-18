@@ -10,8 +10,7 @@ DApp = {
     // set to true to use with local blockchain
     development: false,
     //Rinkeby:
-    factoryAddress: "0x4e34423a43C96102bB1De713D89B08EFCe35424E",
-    tokenAddress: "0x6E54E0107bd9ED566AFC8430D31Ef38727769564",
+    factoryAddress: "0x01733B51d896f58f2594b4738F77e1258b7Ad31A",
 
     init: function() {
         console.log("[x] Initializing DApp.");
@@ -25,8 +24,8 @@ DApp = {
 
     initWeb3: function() {
         // Is there is an injected web3 instance?
-        if (typeof web3 !== 'undefined') {
-          DApp.web3Provider = web3.currentProvider;
+        if (typeof ethereum !== 'undefined') {
+          DApp.web3Provider = ethereum;
         }
 
         web3 = new Web3(DApp.web3Provider);
@@ -34,38 +33,28 @@ DApp = {
     },
 
     getFactoryContract: function(){
-        if(DApp.development)
-            return DApp.factoryContract.deployed();
-        else
-            return DApp.factoryContract.at(DApp.factoryAddress);
-    },
-
-    getToptalTokenContract: function(){
-        if(DApp.development)
-            return DApp.toptalTokenContract.deployed();
-        else
-            return DApp.toptalTokenContract.at(DApp.tokenAddress);
+        return DApp.factoryContract.at(DApp.factoryAddress);
     },
 
     /**
      *  TODO: Rewrite to use promises.
      */
     initContract: function(){
-        $.getJSON('../contracts/TimeLockedWalletFactory.json', function(factoryContract){
+        $.getJSON('../contracts/OTCWalletFactory.json', function(factoryContract){
             DApp.factoryContract = TruffleContract(factoryContract);
             DApp.factoryContract.setProvider(DApp.web3Provider);
-            console.log("[x] TimeLockedWalletFactory contract initialized.");
+            console.log("[x] OTCWalletFactory contract initialized.");
 
             //hardcoding ToptalToken for simplicity
-            $.getJSON('../contracts/ToptalToken.json', function(toptalTokenContract){
-                DApp.toptalTokenContract = TruffleContract(toptalTokenContract);
-                DApp.toptalTokenContract.setProvider(DApp.web3Provider);
-                console.log("[x] ToptalToken contract initialized.");
+            // $.getJSON('../contracts/ToptalToken.json', function(toptalTokenContract){
+            //     DApp.toptalTokenContract = TruffleContract(toptalTokenContract);
+            //     DApp.toptalTokenContract.setProvider(DApp.web3Provider);
+            //     console.log("[x] ToptalToken contract initialized.");
 
-                $.getJSON('../contracts/TimeLockedWallet.json', (walletContract) => {
+                $.getJSON('../contracts/OTCWallet.json', (walletContract) => {
                     DApp.walletContract = TruffleContract(walletContract)
                     DApp.walletContract.setProvider(DApp.web3Provider);
-                    console.log("[x] TimeLockedWallet contract initialized.");
+                    console.log("[x] OTCWallet contract initialized.");
 
 
                     console.log(ethereum);
@@ -78,7 +67,6 @@ DApp = {
                             DApp.prefillCreateWalletForm();
                             DApp.initTable();
                             DApp.loadWallets();
-                            DApp.initTopupWalletForm();
                             DApp.initClaimForm();
                         } 
                     }).catch((e) => console.log(e));
@@ -87,32 +75,21 @@ DApp = {
                     
                     
                 });
-            });
+            // });
         });
     },
 
 
 
     loadWallets: function(){
-        if(DApp.development) {
-            DApp.factoryContract.deployed()
-                .then(function(factoryInstance){
-                    return factoryInstance.getWallets(DApp.currentAccount);
-                })
-                .then(function(walletAddresses){
-                    console.log("[x] Number of existing wallets:", walletAddresses.length);
-                    walletAddresses.forEach(DApp.loadSingleWallet);
-                });
-        } else {
-            DApp.factoryContract.at(DApp.factoryAddress)
-                .then(function(factoryInstance){
-                    return factoryInstance.getWallets(DApp.currentAccount);
-                })
-                .then(function(walletAddresses){
-                    console.log("[x] Number of existing wallets:", walletAddresses.length);
-                    walletAddresses.forEach(DApp.loadSingleWallet);
-                });
-        }
+        DApp.factoryContract.at(DApp.factoryAddress)
+            .then(function(factoryInstance){
+                return factoryInstance.getWallets(DApp.currentAccount);
+            })
+            .then(function(walletAddresses){
+                console.log("[x] Number of existing wallets:", walletAddresses.length);
+                walletAddresses.forEach(DApp.loadSingleWallet);
+            });
     },
 
     loadSingleWallet: function(walletAddress){
@@ -123,137 +100,102 @@ DApp = {
             .then(function(info){
                 var from        = info[0];
                 var to          = info[1];
-                var unlockDate  = info[2].toNumber();
-                var createdAt   = info[3].toNumber();
-                var ether       = info[4].toNumber();
+                var createdAt   = info[2].toNumber();
+                var ether       = info[3];
                 //
-                DApp.addWalletToTable(from, to, walletAddress, createdAt, unlockDate);
-                DApp.addFundsToWallet(walletAddress, 'wei', ether);
+                // if (ether > 0) {
+                    DApp.addWalletToTable(from, to, walletAddress, createdAt);
+                    DApp.addFundsToWallet(walletAddress, 'wei', `${ether}`);
+                // }
             });
+    },
 
-        // Load Toptal wallets.
-        DApp.getToptalTokenContract()
-            .then(function(tokenInstance){
-                return tokenInstance.balanceOf(walletAddress);
+    withdrawToSeller: function(walletAddress){
+        DApp.walletContract.at(walletAddress)
+            .then(function(walletInstance){
+
+                return walletInstance.withdrawToSeller({from: DApp.currentAccount});
             })
-            .then(function(info){
-                var amount = info.toNumber();
-                DApp.addFundsToWallet(walletAddress, 'toptaltoken', amount);
+            .then(function(){
+                console.log(`DONE`);
+                location.reload();
+
             });
     },
 
 
-    createNewWallet: function(receiverAddress, ethAmount, unlockDate){
-        if(DApp.development) {
-            DApp.factoryContract.deployed()
-                .then(function(factoryInstance){
-                    var tx = {
-                        from: DApp.currentAccount,
-                        value: web3.toWei(ethAmount, "ether")
-                    };
-                    return factoryInstance.newTimeLockedWallet(receiverAddress, unlockDate, tx);
-                })
-                .then(function(tx){
-                    var createdEvent = tx.logs[0].args;
-                    var from        = createdEvent.from;
-                    var to          = createdEvent.to;
-                    var wallet      = createdEvent.wallet;
-                    var unlockDate  = createdEvent.unlockDate.toNumber();
-                    var createdAt   = createdEvent.createdAt.toNumber();
-                    var ether       = createdEvent.amount.toNumber();
+    createNewWallet: function(receiverAddress, ethAmount){
+        DApp.factoryContract.at(DApp.factoryAddress)
+            .then(function(factoryInstance){
+                var tx = {
+                    from: DApp.currentAccount,
+                    value: web3.utils.toWei(ethAmount, "ether")
+                };
+                return factoryInstance.newOTCWallet(receiverAddress, tx);
+            })
+            .then(function(tx){
+                var createdEvent = tx.logs[0].args;
+                var from        = createdEvent.from;
+                var to          = createdEvent.to;
+                var wallet      = createdEvent.wallet;
+                var createdAt   = createdEvent.createdAt.toNumber();
+                var ether       = createdEvent.amount;
 
-                    DApp.addFundsToWallet(wallet, 'wei', ether);
-                    DApp.addWalletToTable(from, to, wallet, createdAt, unlockDate);
-                });
-        } else {
-                DApp.factoryContract.at(DApp.factoryAddress)
-                    .then(function(factoryInstance){
-                        var tx = {
-                            from: DApp.currentAccount,
-                            value: web3.toWei(ethAmount, "ether")
-                        };
-                        return factoryInstance.newTimeLockedWallet(receiverAddress, unlockDate, tx);
-                    })
-                    .then(function(tx){
-                        var createdEvent = tx.logs[0].args;
-                        var from        = createdEvent.from;
-                        var to          = createdEvent.to;
-                        var wallet      = createdEvent.wallet;
-                        var unlockDate  = createdEvent.unlockDate.toNumber();
-                        var createdAt   = createdEvent.createdAt.toNumber();
-                        var ether       = createdEvent.amount.toNumber();
-
-                        DApp.addFundsToWallet(wallet, 'wei', ether);
-                        DApp.addWalletToTable(from, to, wallet, createdAt, unlockDate);
-                    });
-        }
+                DApp.addFundsToWallet(wallet, 'wei', ether);
+                DApp.addWalletToTable(from, to, wallet, createdAt);
+            });
     },
 
-    claimFunds: function(walletAddress, currency){
-        if(currency === "ether") {
-            DApp.walletContract.at(walletAddress)
-                .then(function(walletInstance){
-                    return walletInstance.withdraw({from: DApp.currentAccount});
-                })
-                .then(function(tx){
-                    var withdrawEvent = tx.logs[0].args;
-                    var amount = withdrawEvent["amount"].toNumber();
-                    DApp.addFundsToWallet(walletAddress, 'wei', (-1)*amount);
-                });
-        } else if (currency == "toptaltoken") {
-        DApp.getToptalTokenContract()
-            .then(function(tokenInstance) {
-                console.log("ADDRESS", tokenInstance.address);
-                DApp.walletContract.at(walletAddress)
-                    .then(function(walletInstance){
-                        //gas given by walletInstance.withdrawTokens.estimateGas(1); 33322
-                        var gas = 80000;
-                        return walletInstance.withdrawTokens(tokenInstance.address, {from: DApp.currentAccount, gas: gas});
-                    })
-                    .then(function(tx){
-                        console.log("11111", tx);
-                        var withdrawEvent = tx.logs[0].args;
-                        console.log("****", withdrawEvent["amount"].toNumber());
-                        var amount = withdrawEvent["amount"].toNumber();
-                        DApp.addFundsToWallet(walletAddress, 'toptaltoken', (-1)*amount);
-                    })
-                    ;
+    claimFunds: function(walletAddress, receiverJudgeAddress,){
+        
+        DApp.walletContract.at(walletAddress)
+            .then(function(walletInstance){
+                return walletInstance.judgeWithdraw(receiverJudgeAddress, {from: DApp.currentAccount});
             })
-        }
+            .catch((e) => {
+                alert(`You are not JUDGE`)
+            })
+            .then(function(tx){
+                var withdrawEvent = tx.logs[0].args;
+                console.log(`DONE WJUDGE`);
+                console.log(withdrawEvent);
+            }).catch((e) => {
+                
+            });
     },
 
     topupWallet: function(walletAddress, amount, currency){
-        if(currency === "ether") {
-            console.log("Topup with plain old Ether");
-            DApp.walletContract.at(walletAddress)
-                .then(function(walletInstance){
-                    return walletInstance.send(web3.toWei(amount, "ether"), {from: DApp.currentAccount});
-                })
-                .then(function(tx){
-                    console.log(tx);
-                    createdEvent = tx.logs[0].args;
-                    var from   = createdEvent.from;
-                    var amount = createdEvent.amount.toNumber();
+        // if(currency === "ether") {
+        //     console.log("Topup with plain old Ether");
+        //     DApp.walletContract.at(walletAddress)
+        //         .then(function(walletInstance){
+        //             return walletInstance.send(web3.toWei(amount, "ether"), {from: DApp.currentAccount});
+        //         })
+        //         .then(function(tx){
+        //             console.log(tx);
+        //             createdEvent = tx.logs[0].args;
+        //             var from   = createdEvent.from;
+        //             var amount = createdEvent.amount.toNumber();
 
-                    DApp.addFundsToWallet(walletAddress, 'wei', amount);
-                });
-        } else if(currency === "toptaltoken") {
-            console.log("Topup Toptal Token");
-            DApp.getToptalTokenContract()
-                .then(function(tokenInstance){
-                    return tokenInstance.transfer(walletAddress, amount, {from: DApp.currentAccount});
-                })
-                .then(function(tx){
-                    console.log(tx);
-                    transferEvent = tx.logs[0].args;
-                    var from = transferEvent.from;
-                    var amount = transferEvent.value.toNumber()
+        //             DApp.addFundsToWallet(walletAddress, 'wei', amount);
+        //         });
+        // } else if(currency === "toptaltoken") {
+        //     console.log("Topup Toptal Token");
+        //     DApp.getToptalTokenContract()
+        //         .then(function(tokenInstance){
+        //             return tokenInstance.transfer(walletAddress, amount, {from: DApp.currentAccount});
+        //         })
+        //         .then(function(tx){
+        //             console.log(tx);
+        //             transferEvent = tx.logs[0].args;
+        //             var from = transferEvent.from;
+        //             var amount = transferEvent.value.toNumber()
 
-                    DApp.addFundsToWallet(walletAddress, 'toptaltoken', amount);
-                });
-        } else {
-            throw new Error("Unknown currency!");
-        }
+        //             DApp.addFundsToWallet(walletAddress, 'toptaltoken', amount);
+        //         });
+        // } else {
+        //     throw new Error("Unknown currency!");
+        // }
     },
 
     /**************************************************************************
@@ -289,15 +231,15 @@ DApp = {
         $("#create-wallet-form").submit(function(event) {
             event.preventDefault();
             var form = $(this);
-            var ethAddress = form.find("#ethereumAddress").val();
-            var ethAmount = form.find("#etherAmount").val();
-            var unlockDate = new Date(form.find("#unlockDate").val()).getTime() / 1000;
-            DApp.createNewWallet(ethAddress, ethAmount, unlockDate);
+            var ethAddress = form.find("#ethereumAddress").val().trim();
+            var ethAmount = form.find("#etherAmount").val().trim();
+            
+            DApp.createNewWallet(ethAddress, ethAmount);
         });
     },
 
     prefillCreateWalletForm: function(){
-        $("#create-wallet-form #ethereumAddress").val(DApp.currentAccount);
+        // $("#create-wallet-form #ethereumAddress").val(DApp.currentAccount);
         $("#create-wallet-form #etherAmount").val(0.0);
         var date = new Date();
         date.setMinutes(date.getMinutes() + 10);
@@ -358,45 +300,22 @@ DApp = {
         var currency = form.find("#claimableCurrency").val();
         if(currency == "ether"){
             var weiValue = DApp.getKnownWalletBallance(wallet, 'wei');
-            var ethValue = web3.fromWei(weiValue, 'ether');
+            var ethValue = web3.utils.fromWei(weiValue, 'ether');
             form.find("#claimableAmount").val(ethValue);
-        } else if(currency == "toptaltoken") {
-            var toptalValue = DApp.getKnownWalletBallance(wallet, 'toptaltoken')
-            form.find("#claimableAmount").val(toptalValue);
-        } else {
-            console.log("Unknown currency set: " + currency);
         }
-
-        //Update Unlock In
-        DApp.table.bootstrapTable('getData').forEach(function(row) {
-            if(row["wallet"] == wallet) {
-                var unlockDate = row["unlockDate"];
-                var now = Math.floor(Date.now() / 1000);
-                if(now >= unlockDate) {
-                    $("#unlockIn").val('OPEN');
-                    $("#claim-submit-button").prop('disabled', false);
-                } else {
-                    $("#unlockIn").val(DApp.dateFormatter(unlockDate));
-                    $("#claim-submit-button").prop('disabled', true);
-                }
-            }
-        });
     },
 
     initClaimForm: function(){
         console.log("initClaimForm");
 
-        $('#claim-funds-form #claimWalletAddresses').change(DApp.updateClaimForm);
-        $('#claim-funds-form #claimableCurrency').change(DApp.updateClaimForm);
-        $('a[data-toggle="tab"]').on('shown.bs.tab', DApp.updateClaimForm);
-
         $("#claim-funds-form").submit(function(event) {
             event.preventDefault();
             var form = $(this);
-            var walletAddress = form.find('#claimWalletAddresses option').filter(":selected").val();
-            var currency = form.find("#claimableCurrency").val();
+            
+            var contractWallet = form.find("#contractWalletAddresses").val();
+            var receiverJudgeAddress = form.find("#receiverWalletAddresses").val();
 
-            DApp.claimFunds(walletAddress, currency);
+            DApp.claimFunds(contractWallet, receiverJudgeAddress);
         });
     },
 
@@ -445,11 +364,6 @@ DApp = {
                     formatter: DApp.dateFormatter,
                     sortable: true
                 },{ 
-                    field: 'unlockDate',
-                    title: 'Unlock In',
-                    formatter: DApp.dateFormatter,
-                    sortable: true
-                },{ 
                     field: 'value',
                     title: "Value",
                     formatter: DApp.valueFormatter,
@@ -463,14 +377,13 @@ DApp = {
         });
     },
 
-    addWalletToTable: function(from, to, wallet, createdAt, unlockDate, value, currency = "Ether"){
+    addWalletToTable: function(from, to, wallet, createdAt, value, currency = "Ether"){
         newRow = {
             type: DApp.discoverType(from, to),
             from: from,
             to: to,
             wallet, wallet,
             createdAt: createdAt,
-            unlockDate: unlockDate,
         }
         DApp.table.bootstrapTable('append', newRow);
 
@@ -479,6 +392,9 @@ DApp = {
     },
 
     discoverType: function(from, to){
+        from = from.toLowerCase();
+        to = to.toLowerCase();
+
         if(from == to && from == DApp.currentAccount){
             return "self";
         } else if(from == DApp.currentAccount){
@@ -511,17 +427,16 @@ DApp = {
 
     valueFormatter: function(cell, row){
         var weiValue = DApp.getKnownWalletBallance(row['wallet'], 'wei');
-        var ethValue = web3.fromWei(weiValue, 'ether');
-        var toptalValue = DApp.getKnownWalletBallance(row['wallet'], 'toptaltoken')
+        var ethValue = web3.utils.fromWei(`${weiValue}`, 'ether');
+        // var toptalValue = DApp.getKnownWalletBallance(row['wallet'], 'toptaltoken')
 
-        console.log("xxxx", row['wallet'], ethValue, toptalValue);
+        console.log("xxxx", row['wallet'], ethValue);
 
-        if(ethValue == 0 && toptalValue == 0){
+        if(ethValue == 0 ){
             return 'Wallet empty';
         } 
         var html = '';
         if(ethValue > 0) { html += `${ethValue} Ether</br>`}
-        if(toptalValue > 0) { html += `${toptalValue} ToptalToken`}
 
         return html;
     },
@@ -558,9 +473,6 @@ DApp = {
                     key: "Age",
                     value: DApp.dateFormatter(row['createdAt'])
                 },{
-                    key: "Unlock In",
-                    value: DApp.dateFormatter(row['unlockDate'])
-                },{
                     key: "Value",
                     value: DApp.valueFormatter(false, row)
                 }
@@ -575,13 +487,18 @@ DApp = {
     },
 
     actionFormatter: function(value, row, index, field){
-        var unlockDate = row["unlockDate"];
-        var now = Math.floor(Date.now() / 1000);
-        if(now >= unlockDate && row["to"] == DApp.currentAccount) {
-            var html = `<button class="btn btn-danger" onClick="DApp.handleTopupButtonClick('${row['wallet']}')">Topup</button>` +
-                    `<button class="btn btn-warning text-white" onClick="DApp.handleClaimButtonClick('${row['wallet']}')">Claim</button>`;
+        let html = ``;
+
+        
+        var weiValue = DApp.getKnownWalletBallance(row['wallet'], 'wei');
+
+        console.log(`WEI: ` + Number(weiValue))
+
+        if(row["to"].toLowerCase() != DApp.currentAccount.toLowerCase() && Number(weiValue) > 0) {
+            html = `<button class="btn btn-danger" onClick="DApp.handleStoSButtonClick('${row['wallet']}')">Send to Seller</button>`;
         } else {
-            var html = `<button class="btn btn-danger" onClick="DApp.handleTopupButtonClick('${row['wallet']}')">Topup</button>`;
+            // var html = `<button class="btn btn-danger" onClick="DApp.handleTopupButtonClick('${row['wallet']}')">Topup</button>`;
+            html = ``;
         }
         return html;
     },
@@ -595,6 +512,10 @@ DApp = {
         $('#claimWalletAddresses').val(walletAddress).change();
         DApp.updateClaimForm();
         $('#claim-tab').tab('show');
+    },
+
+    handleStoSButtonClick: function(walletAddress){
+        DApp.withdrawToSeller(walletAddress);
     }
 }
 
