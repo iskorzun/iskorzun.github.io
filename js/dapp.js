@@ -30,11 +30,22 @@ DApp = {
 
         web3 = new Web3(DApp.web3Provider);
         console.log("[x] web3 object initialized.");
+
+        ethereum.on('accountsChanged', (accounts) => {
+            DApp.currentAccount = accounts[0];
+            $('#currentWallet').html("Current wallet: " + accounts[0]);
+          });
+
+        ethereum.on('chainChanged', (chainId) => {
+            window.location.reload();
+          });
     },
 
     getFactoryContract: function(){
         return DApp.factoryContract.at(DApp.factoryAddress);
     },
+
+    
 
     /**
      *  TODO: Rewrite to use promises.
@@ -62,6 +73,7 @@ DApp = {
                     ethereum.request({ method: 'eth_requestAccounts' }).then( accounts => {
                         if (accounts.length) {
                             DApp.currentAccount = accounts[0];
+                            $('#currentWallet').html("Current wallet: " + accounts[0]);
                             console.log("[x] Using account", DApp.currentAccount);
                             DApp.initCreateWalletForm();
                             DApp.prefillCreateWalletForm();
@@ -82,6 +94,7 @@ DApp = {
 
 
     loadWallets: function(){
+        $("#loader").show();
         DApp.factoryContract.at(DApp.factoryAddress)
             .then(function(factoryInstance){
                 return factoryInstance.getWallets(DApp.currentAccount);
@@ -89,6 +102,9 @@ DApp = {
             .then(function(walletAddresses){
                 console.log("[x] Number of existing wallets:", walletAddresses.length);
                 walletAddresses.forEach(DApp.loadSingleWallet);
+            })
+            .finally(function(){
+                $("#loader").hide();
             });
     },
 
@@ -111,6 +127,7 @@ DApp = {
     },
 
     withdrawToSeller: function(walletAddress){
+        $("#loader").show();
         DApp.walletContract.at(walletAddress)
             .then(function(walletInstance){
 
@@ -120,11 +137,15 @@ DApp = {
                 console.log(`DONE`);
                 location.reload();
 
+            })
+            .finally(function(){
+                $("#loader").hide();
             });
     },
 
 
     createNewWallet: function(receiverAddress, ethAmount){
+        $("#loader").show();
         DApp.factoryContract.at(DApp.factoryAddress)
             .then(function(factoryInstance){
                 var tx = {
@@ -143,11 +164,14 @@ DApp = {
 
                 DApp.addFundsToWallet(wallet, 'wei', ether);
                 DApp.addWalletToTable(from, to, wallet, createdAt);
+            })
+            .finally(function() {
+                $("#loader").hide();
             });
     },
 
     claimFunds: function(walletAddress, receiverJudgeAddress,){
-        
+        $("#loader").show();
         DApp.walletContract.at(walletAddress)
             .then(function(walletInstance){
                 return walletInstance.judgeWithdraw(receiverJudgeAddress, {from: DApp.currentAccount});
@@ -159,8 +183,9 @@ DApp = {
                 var withdrawEvent = tx.logs[0].args;
                 console.log(`DONE WJUDGE`);
                 console.log(withdrawEvent);
-            }).catch((e) => {
-                
+            })
+            .finally(function() {
+                $("#loader").hide();
             });
     },
 
